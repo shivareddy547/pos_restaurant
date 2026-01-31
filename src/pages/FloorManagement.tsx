@@ -226,7 +226,7 @@ const FloorManagement: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 min-h-screen bg-gray-50 pb-20">
+    <div className="mt-0 sm:mt-[5%] space-y-4 sm:space-y-6 min-h-screen bg-gray-50 pb-20">
       {/* Toast Notification */}
       {toast && (
         <div className={`fixed top-4 right-4 z-[60] px-4 py-3 rounded-lg shadow-lg text-white text-sm font-medium transform transition-all duration-300 ${
