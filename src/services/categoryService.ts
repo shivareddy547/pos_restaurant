@@ -1,73 +1,135 @@
-/**
- * Category Service
- * Mock service for Category Management.
- * In a real application, these would be API calls to the backend:
- * - GET /categories
- * - POST /categories
- * - DELETE /categories/:id
- */
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+
+const getAuthToken = (): string | null => {
+  const session = localStorage.getItem('pos_auth_session');
+  if (!session) return null;
+  try {
+    const parsed = JSON.parse(session);
+    return parsed.token ?? null;
+  } catch (error) {
+    console.error('Invalid session JSON');
+    return null;
+  }
+};
 
 export interface Category {
   id: number;
   name: string;
   description?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
-// In-memory mock storage for categories
-let mockCategories: Category[] = [
-  { id: 1, name: 'appetizers', description: 'Starters and light bites' },
-  { id: 2, name: 'mains', description: 'Main courses' },
-  { id: 3, name: 'desserts', description: 'Sweet treats' },
-  { id: 4, name: 'beverages', description: 'Drinks and refreshments' }
-];
+export interface ApiResponse<T> {
+  success?: boolean;
+  data?: T;
+  error?: string;
+  message?: string;
+}
 
-let nextCategoryId = 5;
-
-/**
- * Get all categories
- * Simulates GET /categories
- */
 export const getCategories = async (): Promise<Category[]> => {
-  // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 300));
-  return [...mockCategories];
-};
-
-/**
- * Create a new category
- * Simulates POST /categories
- */
-export const createCategory = async (name: string, description?: string): Promise<Category> => {
-  await new Promise(resolve => setTimeout(resolve, 300));
+  const token = getAuthToken();
   
-  // Simple validation/slugification
-  const normalizedName = name.toLowerCase().trim().replace(/\s+/g, '-');
-  
-  if (mockCategories.some(c => c.name === normalizedName)) {
-    throw new Error('Category already exists');
-  }
-
-  const newCategory: Category = {
-    id: nextCategoryId++,
-    name: normalizedName,
-    description: description?.trim()
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json'
   };
 
-  mockCategories.push(newCategory);
-  return newCategory;
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_URL}/categories`, {
+    method: 'GET',
+    headers
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || errorData.message || `Failed to fetch categories (${response.status})`);
+  }
+
+  const result: ApiResponse<Category[]> = await response.json();
+  return result.data || result as unknown as Category[];
 };
 
-/**
- * Delete a category
- * Simulates DELETE /categories/:id
- */
-export const deleteCategory = async (id: number): Promise<boolean> => {
-  await new Promise(resolve => setTimeout(resolve, 300));
+export const createCategory = async (name: string, description?: string): Promise<Category> => {
+  const token = getAuthToken();
   
-  const index = mockCategories.findIndex(c => c.id === id);
-  if (index !== -1) {
-    mockCategories.splice(index, 1);
-    return true;
+  if (!token) {
+    throw new Error('Authentication required. Please log in again.');
   }
-  return false;
+
+  const response = await fetch(`${API_URL}/categories`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({ name, description })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    if (response.status === 401) {
+      throw new Error('Session expired. Please log in again.');
+    }
+    throw new Error(errorData.error || errorData.message || `Failed to create category (${response.status})`);
+  }
+
+  const result: ApiResponse<Category> = await response.json();
+  return result.data || result as unknown as Category;
+};
+
+export const updateCategory = async (id: number, name: string, description?: string): Promise<Category> => {
+  const token = getAuthToken();
+  
+  if (!token) {
+    throw new Error('Authentication required. Please log in again.');
+  }
+
+  const response = await fetch(`${API_URL}/categories/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({ name, description })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    if (response.status === 401) {
+      throw new Error('Session expired. Please log in again.');
+    }
+    throw new Error(errorData.error || errorData.message || `Failed to update category (${response.status})`);
+  }
+
+  const result: ApiResponse<Category> = await response.json();
+  return result.data || result as unknown as Category;
+};
+
+export const deleteCategory = async (id: number): Promise<boolean> => {
+  const token = getAuthToken();
+  
+  if (!token) {
+    throw new Error('Authentication required. Please log in again.');
+  }
+
+  const response = await fetch(`${API_URL}/categories/${id}`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    }
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    if (response.status === 401) {
+      throw new Error('Session expired. Please log in again.');
+    }
+    throw new Error(errorData.error || errorData.message || `Failed to delete category (${response.status})`);
+  }
+
+  return true;
 };

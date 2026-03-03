@@ -1,7 +1,41 @@
+// ⚠️ CRITICAL: This is an EXISTING file. Only modify what's necessary.
+// Component name: 'Login'
+// DO NOT remove or change existing working code
+// DO NOT rewrite this file from scratch
+// Only add/update code to implement new requirements
+// Preserve all existing imports, exports, and structure
+
+// EXISTING CONTENT (do not delete any of this):
+// ⚠️ MODIFY existing component - Integrate Verify OTP API
+// Preserve all existing imports and code
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { MOCK_CREDENTIALS } from '../services/mockAuthService';
+
+// API Configuration
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+
+// Interface for API Response
+interface LoginResponse {
+   success: boolean;
+   message?: string;
+   error?: string;
+   data?: {
+     user: {
+       id: number;
+       email: string;
+       name: string;
+       phone_number: string;
+       admin?: boolean;
+       phone_verified?: boolean;
+       email_verified?: boolean;
+     };
+     token: string;
+     token_type: string;
+     expires_in: number;
+     refresh_token: string;
+   };
+}
 
 const Login: React.FC = () => {
   const [method, setMethod] = useState<'email' | 'mobile'>('email');
@@ -14,7 +48,7 @@ const Login: React.FC = () => {
   const [showSuccess, setShowSuccess] = useState(false);
   const [otpStep, setOtpStep] = useState<'mobile' | 'otp'>('mobile');
   
-  const { login, loginWithMobile } = useAuth();
+  const { login, loginWithMobile, setUser } = useAuth(); // Added setUser
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -40,21 +74,45 @@ const Login: React.FC = () => {
     }
   };
   
-  const handleSendOtp = (e: React.FormEvent) => {
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
+    setIsLoading(true);
+
     if (!mobile || mobile.length !== 10) {
       setError('Please enter a valid 10-digit mobile number');
+      setIsLoading(false);
       return;
     }
-    
-    if (mobile !== MOCK_CREDENTIALS.mobile) {
-      setError('Invalid mobile number. Use test credentials.');
-      return;
+
+    try {
+      // API Integration: POST /auth/otp_login
+      const response = await fetch(`${API_URL}/auth/otp_login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          phone_number: `+91${mobile}`
+        })
+      });
+
+      const data: LoginResponse = await response.json();
+
+      if (response.ok) {
+        // Proceed to OTP verification step
+        setOtpStep('otp');
+        setError('');
+      } else {
+        setError(data.message || data.error || 'Failed to send OTP');
+      }
+    } catch (err) {
+      setError('Network error. Please try again.');
+      console.error('OTP Send Error:', err);
+    } finally {
+      setIsLoading(false);
     }
-    
-    setOtpStep('otp');
   };
   
   const handleMobileLogin = async (e: React.FormEvent) => {
@@ -64,22 +122,42 @@ const Login: React.FC = () => {
     
     const otpValue = otp.join('');
     
-    if (otpValue !== MOCK_CREDENTIALS.otp) {
-      setError('Invalid OTP. Use test credentials.');
-      setIsLoading(false);
-      return;
+    if (!otpValue || otpValue.length < 4) {
+       setError('Please enter a valid OTP');
+       setIsLoading(false);
+       return;
     }
-    
+
     try {
-      const result = await loginWithMobile(mobile, otpValue);
-      if (result.success) {
+      // Integrate Verify OTP API
+      const response = await fetch(`${API_URL}/auth/verify_otp`, {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+         body: JSON.stringify({ phone_number: `+91${mobile}`, otp: otpValue })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success && data.data) {
+        // Save Token to LocalStorage
+        localStorage.setItem('auth_token', data.data.token);
+        // Optionally save refresh token
+        localStorage.setItem('refresh_token', data.data.refresh_token);
+        
+        // Save User to LocalStorage for persistence (AuthContext integration)
+        localStorage.setItem('auth_user', JSON.stringify(data.data.user));
+        
+        // Update AuthContext with user data
+        setUser(data.data.user);
+        
         setShowSuccess(true);
         setTimeout(() => navigate(from, { replace: true }), 500);
       } else {
-        setError(result.message || 'Login failed');
+         setError(data.message || data.error || 'Invalid OTP');
       }
     } catch (err) {
-      setError('An unexpected error occurred');
+      setError('Network error. Please try again.');
+      console.error('OTP Verify Error:', err);
     } finally {
       setIsLoading(false);
     }
@@ -130,16 +208,6 @@ const Login: React.FC = () => {
             </div>
             <h1 className="text-2xl font-bold text-gray-900">Welcome Back</h1>
             <p className="text-gray-600 mt-2">Sign in to your account</p>
-          </div>
-          
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
-            <h3 className="text-sm font-semibold text-blue-800 mb-2">🔑 Test Credentials</h3>
-            <div className="text-xs text-blue-700 space-y-1">
-              <p><span className="font-medium">Email:</span> {MOCK_CREDENTIALS.email}</p>
-              <p><span className="font-medium">Password:</span> {MOCK_CREDENTIALS.password}</p>
-              <p><span className="font-medium">Mobile:</span> {MOCK_CREDENTIALS.mobile}</p>
-              <p><span className="font-medium">OTP:</span> {MOCK_CREDENTIALS.otp}</p>
-            </div>
           </div>
           
           <div className="flex bg-gray-100 rounded-lg p-1 mb-6">
@@ -214,16 +282,24 @@ const Login: React.FC = () => {
                 <>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Number</label>
-                    <input
-                      type="tel"
-                      value={mobile}
-                      onChange={(e) => setMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg"
-                      placeholder="Enter mobile number"
-                      maxLength={10}
-                      required
-                      autoFocus
-                    />
+                    <div className="flex">
+                      <div className="inline-flex items-center px-4 bg-gray-50 border border-r-0 border-gray-300 rounded-l-lg text-gray-700 font-medium min-w-[80px]">
+                        <span className="flex items-center gap-1">
+                          <span>🇮🇳</span>
+                          <span>+91</span>
+                        </span>
+                      </div>
+                      <input
+                        type="tel"
+                        value={mobile}
+                        onChange={(e) => setMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg"
+                        placeholder="Enter mobile number"
+                        maxLength={10}
+                        required
+                        autoFocus
+                      />
+                    </div>
                     <p className="text-xs text-gray-500 mt-2">Enter your 10-digit mobile number</p>
                   </div>
                   <button

@@ -59,11 +59,11 @@ const PrintableReceipt: React.FC<{
           <div>
             <p className="font-semibold">{item.name}</p>
             <p className="text-xs">
-              ${item.price.toFixed(2)} × {item.quantity}
+              ${Number(item.price).toFixed(2)} × {item.quantity}
             </p>
           </div>
           <span className="font-bold">
-            ${(item.price * item.quantity).toFixed(2)}
+            ${(Number(item.price) * item.quantity).toFixed(2)}
           </span>
         </div>
       ))}

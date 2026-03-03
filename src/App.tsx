@@ -1,8 +1,10 @@
-import React from 'react';
+// ⚠️ MODIFY existing routing - add new route
+// Preserve all existing imports and routes
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import POSCashierLayout from './components/Layout/POSCashierLayout';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Pages
 import Login from './pages/Login';
@@ -18,39 +20,41 @@ import Reports from './pages/Reports';
 
 const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <Router>
-        <Routes>
+    <ErrorBoundary>
+      <AuthProvider>
+        <Router>
+          <Routes>
 
-          {/* Public Routes */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
+            {/* Public Routes */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
 
-          {/* Protected App */}
-          <Route
-            path="/*"
-            element={
-              <ProtectedRoute>
-                <POSCashierLayout>
-                  <Routes>
-                    <Route path="/" element={<MenuManagement />} />
-                    <Route path="/floor" element={<FloorManagement />} />
-                    <Route path="/orders" element={<OrderManagement />} />
-                    <Route path="/staff" element={<StaffManagement />} />
-                    <Route path="/reports" element={<Reports />} />
-                  </Routes>
-                </POSCashierLayout>
-              </ProtectedRoute>
-            }
-          />
+            {/* Protected App */}
+            <Route
+              path="/*"
+              element={
+                <ProtectedRoute>
+                  <POSCashierLayout>
+                    <Routes>
+                      <Route path="/" element={<MenuManagement />} />
+                      <Route path="/floor" element={<FloorManagement />} />
+                      <Route path="/orders" element={<OrderManagement />} />
+                      <Route path="/staff" element={<StaffManagement />} />
+                      <Route path="/reports" element={<Reports />} />
+                    </Routes>
+                  </POSCashierLayout>
+                </ProtectedRoute>
+              }
+            />
 
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Router>
-    </AuthProvider>
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Router>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 };
 
